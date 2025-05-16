@@ -12,6 +12,9 @@ SRC_URI = " file://update_network.service \
             file://update_network.sh \
           "
 
+S = "${WORKDIR}/sources"
+UNPACKDIR = "${S}"
+
 do_install() {
     install -d ${D}${systemd_system_unitdir}/
     install -m 0644 ${UNPACKDIR}/update_network.service ${D}${systemd_system_unitdir}/

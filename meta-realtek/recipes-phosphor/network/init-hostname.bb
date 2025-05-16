@@ -12,6 +12,9 @@ SRC_URI = " file://init-hostname.service \
             file://init-hostname.sh \
           "
 
+S = "${WORKDIR}/sources"
+UNPACKDIR = "${S}"
+
 do_install() {
     install -d ${D}${systemd_system_unitdir}/
     install -m 0644 ${UNPACKDIR}/init-hostname.service ${D}${systemd_system_unitdir}/
