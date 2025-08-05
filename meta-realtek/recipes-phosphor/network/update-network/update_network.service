@@ -1,0 +1,12 @@
+[Unit]
+Description=Update Mac/IP from env
+Wants=xyz.openbmc_project.Network.service
+After=xyz.openbmc_project.Network.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/update_network.sh
+
+[Install]
+WantedBy=multi-user.target
