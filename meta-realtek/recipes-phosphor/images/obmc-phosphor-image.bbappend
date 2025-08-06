@@ -16,6 +16,7 @@ OBMC_IMAGE_EXTRA_INSTALL:append = " \
 IMAGE_FEATURES += "empty-root-password serial-autologin-root allow-root-login allow-empty-password"
 IMAGE_FEATURES:remove = "\
     obmc-ikvm \
+    obmc-leds \
 "
 ROOTFS_POSTPROCESS_COMMAND += "reconfig_getty_service"
 
