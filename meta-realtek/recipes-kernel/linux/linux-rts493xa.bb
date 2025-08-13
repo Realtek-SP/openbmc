@@ -1,6 +1,6 @@
 SRCREV = "${AUTOREV}"
 
-KBRANCH = "develop/realtek-v6.6"
+KBRANCH = "realtek-v6.6"
 
 require linux-rts493xa.inc
 

@@ -9,7 +9,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 
 FILESEXTRAPATHS:prepend:evb-rts4930a := "${THISDIR}/files/evb-rts4930a:"
 
-SRC_URI = "git://rssi-git.rtkbf.com:29418/bmc/sdk/linux;protocol=ssh;branch=${KBRANCH} \
+SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH} \
            file://defconfig \
            "
 

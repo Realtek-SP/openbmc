@@ -10,7 +10,8 @@ SRCREV = "${AUTOREV}"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-SRC_URI = "git://rssi-git.rtkbf.com:29418/bmc/sdk/u-boot;protocol=ssh;branch=develop/realtek-v2023.01 \
+UBRANCH = "realtek-v2023.01"
+SRC_URI = "git://github.com/realtek-sp/u-boot.git;protocol=https;branch=${UBRANCH} \
            file://${UBOOT_MACHINE}"
 
 S = "${WORKDIR}/git"
