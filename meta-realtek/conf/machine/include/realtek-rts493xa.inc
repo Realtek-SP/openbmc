@@ -8,6 +8,7 @@ PREFERRED_PROVIDER_virtual/bootloader ?= "u-boot-rts493xa"
 PREFERRED_PROVIDER_linux ?= "linux-rts493xa"
 PREFERRED_PROVIDER_u-boot ?= "u-boot-rts493xa"
 PREFERRED_PROVIDER_u-boot-fw-utils ?= "u-boot-fw-rts493xa"
+PREFERRED_PROVIDER_virtual/obmc-host-ipmi-hw = "phosphor-ipmi-ssif"
 
 KERNEL_IMAGETYPES += " fitImage "
 KERNEL_CLASSES = " kernel-fitimage"

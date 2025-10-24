@@ -15,6 +15,7 @@ SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH
 
 SRC_URI:append:evb-rts4930a = " file://enable_lm75.cfg \
                               file://enable_at24.cfg \
+                              file://enable_bmc_ssif.cfg \
                               "
 #not for AUTOREV
 #LINUX_VERSION_EXTENSION ?= "-${SRCREV}"

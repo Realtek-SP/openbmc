@@ -9,6 +9,7 @@ OBMC_IMAGE_EXTRA_INSTALL:append = " \
     phosphor-post-code-manager \
     phosphor-host-postd \
     phosphor-hostlogger \
+    virtual-obmc-host-ipmi-hw \
     net-tools \
     strace \
 "
