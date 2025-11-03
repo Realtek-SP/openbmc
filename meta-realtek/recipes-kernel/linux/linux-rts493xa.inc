@@ -7,16 +7,31 @@ KCONFIG_MODE = "--alldefconfig"
 LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 
-FILESEXTRAPATHS:prepend:evb-rts4930a := "${THISDIR}/files/evb-rts4930a:"
+FILESPATH:prepend := "${THISDIR}/files/common:"
+FILESEXTRAPATHS:prepend:rts4931a-escm := "${THISDIR}/files/escm:"
+FILESEXTRAPATHS:prepend:rts4932a-escm := "${THISDIR}/files/escm:"
+
+EVB_COMMON_CFGS = " file://enable_lm75.cfg \
+                    file://enable_at24.cfg \
+                    file://enable_bmc_ssif.cfg \
+                  "
+
+ESCM_EXTRA_CFGS = " file://disable_sd_usbdev.cfg \
+                    file://enable_ftdi_sio.cfg \
+                  "
 
 SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH} \
            file://defconfig \
            "
 
-SRC_URI:append:evb-rts4930a = " file://enable_lm75.cfg \
-                              file://enable_at24.cfg \
-                              file://enable_bmc_ssif.cfg \
-                              "
+SRC_URI:append:rts4931a-evb = "${EVB_COMMON_CFGS}"
+SRC_URI:append:rts4932a-evb = "${EVB_COMMON_CFGS}"
+SRC_URI:append:rts4931a-escm = "${EVB_COMMON_CFGS}"
+SRC_URI:append:rts4932a-escm = "${EVB_COMMON_CFGS}"
+
+SRC_URI:append:rts4931a-escm = "${ESCM_EXTRA_CFGS}"
+SRC_URI:append:rts4932a-escm = "${ESCM_EXTRA_CFGS}"
+
 #not for AUTOREV
 #LINUX_VERSION_EXTENSION ?= "-${SRCREV}"
 

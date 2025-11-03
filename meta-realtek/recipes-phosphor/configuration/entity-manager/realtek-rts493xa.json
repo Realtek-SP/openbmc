@@ -4,7 +4,7 @@
             {
                 "Address": "0x50",
                 "Bus": "5",
-                "Name": "RTS4930A EVB FRU",
+                "Name": "REALTEK-RTS493xA FRU",
                 "Type": "EEPROM_24C04"
             },
             {
@@ -72,8 +72,8 @@
                 "Type": "LM75A"
             }
         ],
-        "Name": "RTS4930A EVB",
-        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'RTS4930A-EVB'})",
+        "Name": "REALTEK RTS493xA",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
         "Type": "Board",
         "xyz.openbmc_project.Inventory.Decorator.Asset": {
             "Manufacturer": "$BOARD_MANUFACTURER",

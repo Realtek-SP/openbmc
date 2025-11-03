@@ -1,7 +1,7 @@
-DEPENDS:append:evb-rts4930a = " evb-rts4930a-yaml-config"
+DEPENDS += "realtek-rts493xa-yaml-config"
 
-EXTRA_OEMESON:evb-rts4930a = " \
-    -Dsensor-yaml-gen=${STAGING_DIR_HOST}${datadir}/evb-rts4930a-yaml-config/ipmi-sensors.yaml \
-    -Dfru-yaml-gen=${STAGING_DIR_HOST}${datadir}/evb-rts4930a-yaml-config/ipmi-fru.yaml \
+EXTRA_OEMESON += " \
+    -Dsensor-yaml-gen=${STAGING_DIR_HOST}${datadir}/realtek-rts493xa-yaml-config/ipmi-sensors.yaml \
+    -Dfru-yaml-gen=${STAGING_DIR_HOST}${datadir}/realtek-rts493xa-yaml-config/ipmi-fru.yaml \
     -Dget-dbus-active-software=disabled \
     "

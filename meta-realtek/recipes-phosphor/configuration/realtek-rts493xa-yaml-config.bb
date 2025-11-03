@@ -1,4 +1,4 @@
-SUMMARY = "YAML configuration for evb-rts4930a"
+SUMMARY = "YAML configuration for realtek rts493xa"
 PR = "r1"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/Apache-2.0;md5=89aea4e17d99a7cacdbeed46a0096b10"
@@ -13,7 +13,7 @@ SRC_URI = " \
 S = "${WORKDIR}/sources"
 UNPACKDIR = "${S}"
 
-do_install:append:evb-rts4930a(){
+do_install() {
     # cat romulus-ipmi-fru.yaml romulus-ipmi-fru-bmc.yaml > fru-read.yaml
 
     # install -m 0644 -D romulus-ipmi-inventory-sensors.yaml \

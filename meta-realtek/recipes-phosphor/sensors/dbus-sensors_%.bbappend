@@ -1,3 +1,3 @@
-PACKAGECONFIG:evb-rts4930a = " \
+PACKAGECONFIG = " \
     hwmontempsensor \
     "

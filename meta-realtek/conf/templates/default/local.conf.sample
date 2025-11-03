@@ -14,7 +14,7 @@
 #
 # Machine Selection
 #
-MACHINE ??= "evb-rts4930a"
+MACHINE ??= "rts4931a-evb"
 
 #
 # Where to place downloads

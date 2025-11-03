@@ -11,7 +11,7 @@
 #       d-bus Properties
 #         IPMI Fru mapping
 0:
-  /xyz/openbmc_project/inventory/system/board/RTS4930A_EVB:
+  /xyz/openbmc_project/inventory/system/board/REALTEK_RTS493xA:
         entityID: 23
         entityInstance: 1
         interfaces:
