@@ -1,0 +1,28 @@
+From a1bc484c67d9b041451efcdd01a82eb22da188ec Mon Sep 17 00:00:00 2001
+From: leon_fang <leon_fang@realsil.com.cn>
+Date: Fri, 7 Nov 2025 15:32:42 +0800
+Subject: [PATCH] change(dbus-sensor): disable io_uring for dbus-sensors
+
+The use of io_uring by dbus-sensors can cause the excessively high percentage of cpu io_wait time.
+Replace io_uring with epoll_wait.
+
+BMCSW-641
+
+Upstream-Status: Inappropriate [local configuration change for realtek, not suitable for upstream]
+Signed-off-by: leon_fang <leon_fang@realsil.com.cn>
+---
+ meson.build | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index d1f1207..109cbf4 100644
+--- a/meson.build
++++ b/meson.build
+@@ -27,7 +27,6 @@ add_project_arguments(
+     '-DBOOST_ASIO_DISABLE_THREADS',
+     '-DBOOST_ALLOW_DEPRECATED_HEADERS',
+     '-DBOOST_ASIO_HAS_IO_URING',
+-    '-DBOOST_ASIO_DISABLE_EPOLL',
+     language: 'cpp',
+ )
+
