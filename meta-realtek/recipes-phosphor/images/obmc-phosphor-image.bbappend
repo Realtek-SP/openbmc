@@ -2,6 +2,7 @@ DEPENDS += "virtual/bootloader"
 OBMC_IMAGE_EXTRA_INSTALL:append = " \
     kernel-modules \
     update-network \
+    init-hostname \
     nfs-utils \
     phosphor-skeleton-control-power \
     phosphor-state-manager \

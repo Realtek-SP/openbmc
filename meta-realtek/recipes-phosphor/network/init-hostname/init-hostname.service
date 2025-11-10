@@ -1,0 +1,13 @@
+[Unit]
+Description=Init BMC Hostname
+Before=avahi-daemon.service
+ConditionPathExists=!/var/lib/first-boot-set-hostname
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/init-hostname.sh
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=avahi-daemon.service
