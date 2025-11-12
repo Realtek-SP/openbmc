@@ -1,0 +1,1 @@
+SUBSYSTEM=="tty", KERNEL=="ttyS0", ENV{SYSTEMD_WANTS}="obmc-console@ttyS0" SYMLINK+="ttyS0", TAG+="systemd"
