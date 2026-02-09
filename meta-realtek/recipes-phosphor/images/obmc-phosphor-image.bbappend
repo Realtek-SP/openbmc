@@ -13,6 +13,7 @@ OBMC_IMAGE_EXTRA_INSTALL:append = " \
     virtual-obmc-host-ipmi-hw \
     net-tools \
     strace \
+    iomat-tools \
 "
 #autologin for debug
 IMAGE_FEATURES += "empty-root-password serial-autologin-root allow-root-login allow-empty-password"

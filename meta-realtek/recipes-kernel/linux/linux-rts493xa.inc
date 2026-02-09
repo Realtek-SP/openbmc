@@ -14,6 +14,7 @@ FILESEXTRAPATHS:prepend:rts4932a-escm := "${THISDIR}/files/escm:"
 EVB_COMMON_CFGS = " file://enable_lm75.cfg \
                     file://enable_at24.cfg \
                     file://enable_bmc_ssif.cfg \
+                    file://enable_iomatrix.cfg \
                   "
 
 ESCM_EXTRA_CFGS = " file://disable_sd_usbdev.cfg \
