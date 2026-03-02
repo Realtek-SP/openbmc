@@ -18,6 +18,7 @@ EVB_COMMON_CFGS = " file://enable_lm75.cfg \
                   "
 
 ESCM_EXTRA_CFGS = " file://enable_ftdi_sio.cfg \
+                    file://enable_leds_gpio.cfg \
                   "
 
 SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH} \

@@ -1,0 +1,8 @@
+bmc_booted:
+power_on:
+enclosure_identify:
+    identify:
+        Action: 'On'
+        DutyOn: 50
+        Period: 0
+        Priority: 'On'
