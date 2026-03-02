@@ -17,8 +17,7 @@ EVB_COMMON_CFGS = " file://enable_lm75.cfg \
                     file://enable_iomatrix.cfg \
                   "
 
-ESCM_EXTRA_CFGS = " file://disable_sd_usbdev.cfg \
-                    file://enable_ftdi_sio.cfg \
+ESCM_EXTRA_CFGS = " file://enable_ftdi_sio.cfg \
                   "
 
 SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH} \
