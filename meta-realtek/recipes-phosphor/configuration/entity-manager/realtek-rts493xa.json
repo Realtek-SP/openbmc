@@ -2,77 +2,165 @@
     {
         "Exposes": [
             {
-                "Address": "0x50",
-                "Bus": "5",
+                "Address": "0x57",
+                "Bus": "0",
                 "Name": "REALTEK-RTS493xA FRU",
-                "Type": "EEPROM_24C04"
-            },
-            {
-                "Address": "0x48",
-                "Bus": 4,
-                "Name": "Ambient_Temp1",
-                "Thresholds": [
-                    {
-                        "Direction": "greater than",
-                        "Name": "upper critical",
-                        "Severity": 1,
-                        "Value": 40
-                    },
-                    {
-                        "Direction": "greater than",
-                        "Name": "upper non critical",
-                        "Severity": 0,
-                        "Value": 38
-                    },
-                    {
-                        "Direction": "less than",
-                        "Name": "lower non critical",
-                        "Severity": 0,
-                        "Value": 5
-                    },
-                    {
-                        "Direction": "less than",
-                        "Name": "lower critical",
-                        "Severity": 1,
-                        "Value": 0
-                    }
-                ],
-                "Type": "LM75A"
-            },
-            {
-                "Address": "0x49",
-                "Bus": 4,
-                "Name": "Ambient_Temp2",
-                "Thresholds": [
-                    {
-                        "Direction": "greater than",
-                        "Name": "upper critical",
-                        "Severity": 1,
-                        "Value": 40
-                    },
-                    {
-                        "Direction": "greater than",
-                        "Name": "upper non critical",
-                        "Severity": 0,
-                        "Value": 38
-                    },
-                    {
-                        "Direction": "less than",
-                        "Name": "lower non critical",
-                        "Severity": 0,
-                        "Value": 5
-                    },
-                    {
-                        "Direction": "less than",
-                        "Name": "lower critical",
-                        "Severity": 1,
-                        "Value": 0
-                    }
-                ],
-                "Type": "LM75A"
+                "Type": "EEPROM_24C64"
             }
         ],
-        "Name": "REALTEK RTS493xA",
+        "Name": "REALTEK RTS493xA 0",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "2",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 2",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "3",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 3",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "4",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 4",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "5",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 5",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "6",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 6",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "7",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 7",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "8",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 8",
+        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
+        "Type": "Board",
+        "xyz.openbmc_project.Inventory.Decorator.Asset": {
+            "Manufacturer": "$BOARD_MANUFACTURER",
+            "Model": "$BOARD_PRODUCT_NAME",
+            "PartNumber": "$BOARD_PART_NUMBER",
+            "SerialNumber": "$BOARD_SERIAL_NUMBER"
+        }
+    },
+    {
+        "Exposes": [
+            {
+                "Address": "0x57",
+                "Bus": "9",
+                "Name": "REALTEK-RTS493xA FRU",
+                "Type": "EEPROM_24C64"
+            }
+        ],
+        "Name": "REALTEK RTS493xA 9",
         "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'REALTEK-RTS493xA'})",
         "Type": "Board",
         "xyz.openbmc_project.Inventory.Decorator.Asset": {
