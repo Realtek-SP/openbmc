@@ -1,0 +1,48 @@
+From bee015f673494822b15be499dda78a0b9fe4d454 Mon Sep 17 00:00:00 2001
+From: leon_fang <leon_fang@realsil.com.cn>
+Date: Mon, 2 Mar 2026 19:49:17 +0800
+Subject: [PATCH] change: change gpiochip number
+
+BMCSW-769
+
+Upstream-Status: Inappropriate [local configuration change for realtek, not suitable for upstream]
+Signed-off-by: leon_fang <leon_fang@realsil.com.cn>
+---
+ libopenbmc_intf/gpio.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/libopenbmc_intf/gpio.c b/libopenbmc_intf/gpio.c
+index c59de31..5db4779 100644
+--- a/libopenbmc_intf/gpio.c
++++ b/libopenbmc_intf/gpio.c
+@@ -19,7 +19,7 @@
+ 
+ #define GPIO_PORT_OFFSET 8
+ #define GPIO_BASE_PATH "/sys/class/gpio"
+-#define DEV_NAME "/dev/gpiochip0"
++#define DEV_NAME "/dev/gpiochip2"
+ 
+ cJSON* gpio_json = NULL;
+ 
+@@ -325,7 +325,11 @@ int gpio_get_params(GPIO* gpio)
+ 		printf("Number of pins per bank: %d\n", info.lines);
+ 
+ 		gpio->num = (num->valueint) % info.lines;
+-		gpio->chip_id = (num->valueint) / info.lines;
++		if (sscanf(DEV_NAME, "/dev/gpiochip%hu", &gpio->chip_id) == 1) {
++			printf("gpiochip id: %d\n", gpio->chip_id);
++		} else {
++			printf("get gpiochip id failed\n");
++		}
+ 	}
+ 	else
+ 	{
+@@ -343,7 +347,7 @@ int gpio_get_params(GPIO* gpio)
+ 	// it should be safe to assume this will always be 0. Eventually skeleton
+ 	// should be going away, but if the need arises before then this may need
+ 	// to be updated to handle non-zero cases.
+-	gpio->chip_id = 0;
++	// gpio->chip_id = 0;
+ 	return GPIO_OK;
+ }
+ 

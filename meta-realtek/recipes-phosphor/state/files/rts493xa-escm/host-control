@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Usage of this utility
+
+pwr_stat_before="i 0"
+
+usage() {
+    echo "Usage: $(basename "$0") [listen]"
+}
+
+listen() {
+    echo "Listen Host and Chassis initial state."
+    echo "Set Chassis Always On"
+    busctl set-property xyz.openbmc_project.State.Chassis /xyz/openbmc_project/state/chassis0 xyz.openbmc_project.State.Chassis CurrentPowerState s "xyz.openbmc_project.State.Chassis.PowerState.On"
+    while true; do
+        val=$(busctl call org.openbmc.control.Power /org/openbmc/control/power0  org.openbmc.control.Power getPowerState)
+        if [ "$val" == "$pwr_stat_before" ]; then
+            :
+        else
+            if [ "$val" == "i 1" ];then
+                busctl set-property xyz.openbmc_project.State.Host /xyz/openbmc_project/state/host0 xyz.openbmc_project.State.Host CurrentHostState s "xyz.openbmc_project.State.Host.HostState.Running"
+            else
+                busctl set-property xyz.openbmc_project.State.Host /xyz/openbmc_project/state/host0 xyz.openbmc_project.State.Host CurrentHostState s "xyz.openbmc_project.State.Host.HostState.Off"
+            fi
+       fi
+       pwr_stat_before=$val
+       sleep 1
+    done
+}
+if [ "$1" == "listen" ]; then
+    listen
+else
+    echo "Invalid parameter"
+    usage
+fi
+exit 0

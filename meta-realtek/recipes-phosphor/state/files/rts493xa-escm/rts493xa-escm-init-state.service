@@ -1,0 +1,12 @@
+[Unit]
+Description=set initial host and chassis state
+Requires=xyz.openbmc_project.State.Host@0.service
+After=xyz.openbmc_project.State.Chassis@0.service
+After=xyz.openbmc_project.State.Host@0.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/host-control listen
+
+[Install]
+RequiredBy=multi-user.target

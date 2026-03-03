@@ -1,0 +1,20 @@
+{
+    "gpio_configs": {
+
+        "power_config": {
+            "power_good_in": "HPM_GPIO131",
+            "power_up_outs": [
+            ],
+            "reset_outs": [
+            ]
+        }
+    },
+
+    "gpio_definitions": [
+        {
+            "name": "HPM_GPIO131",
+            "num": 131,
+            "direction": "in"
+        }
+    ]
+}
