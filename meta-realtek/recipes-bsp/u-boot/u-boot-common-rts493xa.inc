@@ -6,7 +6,7 @@ LICENSE = "GPL-2.0-or-later"
 
 LIC_FILES_CHKSUM = "file://Licenses/README;md5=2ca5f2c35c8cc335f0a19756634782f1"
 
-SRCREV = "${AUTOREV}"
+SRCREV = "db0f20b96a1242f9c466e6ae281c5dbafcd7fef2"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 

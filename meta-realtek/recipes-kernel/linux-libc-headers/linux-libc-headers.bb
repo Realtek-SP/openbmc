@@ -3,7 +3,7 @@ require recipes-kernel/linux-libc-headers/linux-libc-headers.inc
 
 KBRANCH = "realtek-v6.6"
 
-SRCREV = "3fdc613ac2694d3450aee93a94ecae699b0173ee"
+SRCREV = "be15be9c4d93bbf33ac92ccb2e8b44fda4238daa"
 SRC_URI = "git://github.com/realtek-sp/linux.git;protocol=https;branch=${KBRANCH}"
 
 LICENSE = "GPL-2.0-only"
