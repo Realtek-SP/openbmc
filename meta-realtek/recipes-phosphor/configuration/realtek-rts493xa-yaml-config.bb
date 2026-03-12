@@ -5,28 +5,32 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/Apache-2.0;md5
 
 inherit allarch
 
-SRC_URI = " \
-    file://ipmi-sensors.yaml \
-    file://ipmi-fru.yaml \
+FILESEXTRAPATHS:prepend:rts4931a-evb := "${THISDIR}/${PN}/evb:"
+FILESEXTRAPATHS:prepend:rts4932a-evb := "${THISDIR}/${PN}/evb:"
+FILESEXTRAPATHS:prepend:rts4931a-escm := "${THISDIR}/${PN}/escm:"
+FILESEXTRAPATHS:prepend:rts4932a-escm := "${THISDIR}/${PN}/escm:"
+
+
+SRC_URI:append = " \
+            file://ipmi-sensors.yaml \
+            file://ipmi-fru.yaml \
     "
 
 S = "${WORKDIR}/sources"
 UNPACKDIR = "${S}"
 
 do_install() {
-    # cat romulus-ipmi-fru.yaml romulus-ipmi-fru-bmc.yaml > fru-read.yaml
 
-    # install -m 0644 -D romulus-ipmi-inventory-sensors.yaml \
-    #     ${D}${datadir}/${BPN}/ipmi-inventory-sensors.yaml
-    install -m 0644 -D ipmi-sensors.yaml \
-        ${D}${datadir}/${BPN}/ipmi-sensors.yaml
-    install -m 0644 -D ipmi-fru.yaml \
+    install -m 0644 -D ${UNPACKDIR}/ipmi-sensors.yaml \
+            ${D}${datadir}/${BPN}/ipmi-sensors.yaml
+
+    install -m 0644 -D ${UNPACKDIR}/ipmi-fru.yaml \
         ${D}${datadir}/${BPN}/ipmi-fru.yaml
 }
 
 FILES:${PN}-dev = " \
-    ${datadir}/${BPN}/ipmi-sensors.yaml \
     ${datadir}/${BPN}/ipmi-fru.yaml \
+    ${datadir}/${BPN}/ipmi-sensors.yaml \
     "
 
 ALLOW_EMPTY:${PN} = "1"

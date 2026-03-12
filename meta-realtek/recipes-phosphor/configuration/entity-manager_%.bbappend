@@ -1,4 +1,7 @@
-FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend:rts4931a-evb := "${THISDIR}/${PN}/evb:"
+FILESEXTRAPATHS:prepend:rts4932a-evb := "${THISDIR}/${PN}/evb:"
+FILESEXTRAPATHS:prepend:rts4931a-escm := "${THISDIR}/${PN}/escm:"
+FILESEXTRAPATHS:prepend:rts4932a-escm := "${THISDIR}/${PN}/escm:"
 SRC_URI += " \
     file://realtek-rts493xa.json \
     file://blacklist.json \
