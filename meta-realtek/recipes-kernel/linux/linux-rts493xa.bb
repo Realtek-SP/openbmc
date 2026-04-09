@@ -1,4 +1,4 @@
-SRCREV = "be15be9c4d93bbf33ac92ccb2e8b44fda4238daa"
+SRCREV = "21adcd3627943db8e234ecebc0028746bd1f8446"
 
 KBRANCH = "realtek-v6.6"
 
