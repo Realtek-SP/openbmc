@@ -1,0 +1,675 @@
+From e5d3f4474060af864550c7568bff34bc2c1acc46 Mon Sep 17 00:00:00 2001
+From: leon_fang <leon_fang@realsil.com.cn>
+Date: Tue, 14 Apr 2026 10:45:29 +0800
+Subject: [PATCH] feat: Add zero-copy streaming extraction for firmware upload
+
+Implement streaming tar extraction during HTTP reception to eliminate
+memory buffering. Data flows directly from HTTP socket to tar extraction
+pipe, reducing memory usage for updating firmware images. For now, it
+only supports '/redfish/v1/UpdateService/update' http push method
+
+BMCSW-775
+
+Change-Id: I908f59949e4822ce66a5079fee815552fc02b148
+Signed-off-by: leon_fang <leon_fang@realsil.com.cn>
+Upstream-Status: Inappropriate [local configuration change for realtek, not suitable for upstream]
+---
+ config/meson.build                  |   1 +
+ http/http_body.hpp                  | 214 +++++++++++++++++++++++++++-
+ http/http_connection.hpp            | 149 ++++++++++++++++++-
+ http/http_request.hpp               |   5 +
+ meson.options                       |   9 ++
+ redfish-core/lib/update_service.hpp |  58 +++++++-
+ 6 files changed, 424 insertions(+), 12 deletions(-)
+
+diff --git a/config/meson.build b/config/meson.build
+index 40bee7f6..09ef986f 100644
+--- a/config/meson.build
++++ b/config/meson.build
+@@ -41,6 +41,7 @@ feature_options = [
+     'tests',
+     'vm-websocket',
+     'xtoken-auth',
++    'firmware-stream-update',
+ ]
+ 
+ string_options = [
+diff --git a/http/http_body.hpp b/http/http_body.hpp
+index d76ed49c..a4794d31 100644
+--- a/http/http_body.hpp
++++ b/http/http_body.hpp
+@@ -6,6 +6,8 @@
+ #include "logging.hpp"
+ #include "utility.hpp"
+ 
++#include <sys/mman.h>
++#include <sys/stat.h>
+ #include <fcntl.h>
+ 
+ #include <boost/asio/buffer.hpp>
+@@ -23,12 +25,14 @@
+ #include <array>
+ #include <cstddef>
+ #include <cstdint>
++#include <cstring>
++#include <filesystem>
+ #include <limits>
+ #include <optional>
+ #include <string>
+ #include <string_view>
+ #include <utility>
+-
++#include <sys/mount.h>
+ namespace bmcweb
+ {
+ struct HttpBody
+@@ -55,12 +59,170 @@ class HttpBody::value_type
+     std::optional<size_t> fileSize;
+     std::string strBody;
+ 
++    // Streaming extraction support
++    FILE* extractPipe_ = nullptr;
++    std::string extractPath_;
++    bool usePipeExtraction_ = false;
++    size_t pipeWriteSize_ = 0;
++    bool extractionSucceeded_ = false;
++    bool cleanupDone_ = false;
++
+   public:
+     value_type() = default;
+     explicit value_type(std::string_view s) : strBody(s) {}
+     explicit value_type(EncodingType e) : encodingType(e) {}
+     EncodingType encodingType = EncodingType::Raw;
+ 
++    bool enablePipeExtraction(const std::string& outputDir)
++    {
++        std::error_code ec;
++        if (mount("/run/initramfs", "/tmp/images/", nullptr, MS_BIND, nullptr) != 0)
++        {
++            BMCWEB_LOG_ERROR("Error occurred during mount /run/initramfs to {}", "/tmp/images");
++            return false;
++        }
++        BMCWEB_LOG_INFO("Successfully mounted /run/initramfs to {}", "/tmp/images");
++
++        std::filesystem::create_directories(outputDir, ec);
++        if (ec)
++        {
++            BMCWEB_LOG_ERROR("Failed to create directory: {}", ec.message());
++            umount("/tmp/images");
++            return false;
++        }
++
++        extractPath_ = outputDir;
++        std::string cmd = "tar -xf - -C " + outputDir + " --no-same-owner" + " 2>&1";
++        BMCWEB_LOG_INFO("Starting pipe extraction: {}", cmd);
++        extractPipe_ = popen(cmd.c_str(), "w");
++        if (!extractPipe_)
++        {
++            BMCWEB_LOG_ERROR("Failed to create extraction pipe: {}", strerror(errno));
++            std::filesystem::remove_all(outputDir, ec);
++            umount("/tmp/images");
++            return false;
++        }
++        usePipeExtraction_ = true;
++        pipeWriteSize_ = 0;
++        BMCWEB_LOG_INFO("Pipe extraction enabled to: {}", outputDir);
++        return true;
++    }
++
++    bool isPipeExtractionMode() const
++    {
++        return usePipeExtraction_;
++    }
++
++    const std::string& getExtractPath() const
++    {
++        return extractPath_;
++    }
++
++    size_t getPipeWriteSize() const
++    {
++        return pipeWriteSize_;
++    }
++
++    bool writeToPipe(const char* data, size_t size)
++    {
++        if (!extractPipe_)
++        {
++            return false;
++        }
++        size_t written = fwrite(data, 1, size, extractPipe_);
++        if (written != size)
++        {
++            BMCWEB_LOG_ERROR("Pipe write failed: written={}, expected={}", written, size);
++            return false;
++        }
++        pipeWriteSize_ += written;
++        if (pipeWriteSize_ % (64 * 1024) == 0)
++        {
++            fflush(extractPipe_);
++        }
++        return true;
++    }
++
++    bool closePipeExtraction()
++    {
++        BMCWEB_LOG_DEBUG("closePipeExtraction called, pipe={}, cleanupDone={}",
++                         static_cast<const void*>(extractPipe_), cleanupDone_);
++        if (!extractPipe_)
++        {
++            return true;
++        }
++        BMCWEB_LOG_INFO("Closing extraction pipe, total: {} bytes", pipeWriteSize_);
++        fflush(extractPipe_);
++        int status = pclose(extractPipe_);
++        extractPipe_ = nullptr;
++
++        if (status == -1 || WEXITSTATUS(status) != 0)
++        {
++            BMCWEB_LOG_ERROR("tar extraction failed with status {}", status);
++            extractionSucceeded_ = false;
++            cleanupExtractPath();
++            return false;
++        }
++
++        extractionSucceeded_ = true;
++        BMCWEB_LOG_INFO("Pipe extraction succeeded");
++        return true;
++    }
++
++    void cleanupExtractPath()
++    {
++        std::error_code ec;
++
++        if (cleanupDone_ || extractPath_.empty())
++        {
++            return;
++        }
++
++        BMCWEB_LOG_WARNING("Cleaning up extraction directory: {}", extractPath_);
++
++
++        // Remove the extraction directory
++        std::filesystem::remove_all(extractPath_, ec);
++        if (ec)
++        {
++            BMCWEB_LOG_ERROR("Failed to remove extraction directory {}: {}",
++                           extractPath_, ec.message());
++        }
++        else
++        {
++            BMCWEB_LOG_INFO("Successfully removed extraction directory: {}", extractPath_);
++        }
++
++        // Skip umount if already unmounted (e.g., double cleanup).
++        // EINVAL means the path is not a mount point, which is acceptable
++        // on a second call (already unmounted).
++        if (umount("/tmp/images") != 0)
++        {
++            if (errno != EINVAL)
++            {
++                BMCWEB_LOG_ERROR("Error {} occurred during umount /run/initramfs from /tmp/images", errno);
++            }
++            // EINVAL: already unmounted, silently ignore
++        }
++        else
++        {
++            BMCWEB_LOG_INFO("Successfully unmounted /run/initramfs from /tmp/images");
++        }
++        cleanupDone_ = true;
++    }
++
++    void markExtractionSuccess()
++    {
++        extractionSucceeded_ = true;
++        BMCWEB_LOG_INFO("Extraction marked as successful, will not cleanup: {}", extractPath_);
++    }
++
++    bool isExtractionSucceeded() const
++    {
++        return extractionSucceeded_;
++    }
++
++
+     const boost::beast::file_posix& file() const
+     {
+         return fileHandle.fileHandle;
+@@ -94,6 +256,18 @@ class HttpBody::value_type
+ 
+     void clear()
+     {
++        // Clean up pipe extraction if not already closed
++        // This is a safety net; pipe should normally be closed in handle()
++        if (extractPipe_)
++        {
++            BMCWEB_LOG_WARNING("Pipe extraction not closed before clear(), closing now");
++            closePipeExtraction();
++        }
++
++        usePipeExtraction_ = false;
++        extractPath_.clear();
++        pipeWriteSize_ = 0;
++
+         strBody.clear();
+         strBody.shrink_to_fit();
+         fileHandle.fileHandle = boost::beast::file_posix();
+@@ -254,8 +428,16 @@ class HttpBody::reader
+     {
+         if (contentLength)
+         {
+-            if (!value.file().is_open())
++            if (value.isPipeExtractionMode())
+             {
++                BMCWEB_LOG_INFO("Pipe extraction mode active");
++                std::string marker = "DIR:";
++                value.str() = marker + value.getExtractPath();
++                BMCWEB_LOG_INFO("Polulate directory path in strbody which will be written in memfd to pass, path: {}", value.getExtractPath());
++            }
++            else if (!value.file().is_open())
++            {
++                // Small files: use string mode
+                 value.str().reserve(static_cast<size_t>(*contentLength));
+             }
+         }
+@@ -267,10 +449,32 @@ class HttpBody::reader
+                     boost::system::error_code& ec)
+     {
+         size_t extra = boost::beast::buffer_bytes(buffers);
+-        for (const auto b : boost::beast::buffers_range_ref(buffers))
++
++        if (value.isPipeExtractionMode())
++        {
++            for (const auto b : boost::beast::buffers_range_ref(buffers))
++            {
++                const char* ptr = static_cast<const char*>(b.data());
++                if (!value.writeToPipe(ptr, b.size()))
++                {
++                    BMCWEB_LOG_ERROR("Pipe write failed");
++                    ec = boost::system::error_code(
++                        boost::system::errc::io_error,
++                        boost::system::system_category());
++                    return 0;
++                }
++            }
++            ec = {};
++            return extra;
++        }
++        else
+         {
+-            const char* ptr = static_cast<const char*>(b.data());
+-            value.str() += std::string_view(ptr, b.size());
++            // String mode: append to string
++            for (const auto b : boost::beast::buffers_range_ref(buffers))
++            {
++                const char* ptr = static_cast<const char*>(b.data());
++                value.str() += std::string_view(ptr, b.size());
++            }
+         }
+         ec = {};
+         return extra;
+diff --git a/http/http_connection.hpp b/http/http_connection.hpp
+index 955cb347..84cce3e7 100644
+--- a/http/http_connection.hpp
++++ b/http/http_connection.hpp
+@@ -26,6 +26,10 @@
+ #include <boost/asio/ssl/verify_context.hpp>
+ #include <boost/asio/steady_timer.hpp>
+ #include <boost/beast/_experimental/test/stream.hpp>
++
++#include <chrono>
++#include <iomanip>
++#include <sstream>
+ #include <boost/beast/core/buffers_generator.hpp>
+ #include <boost/beast/core/detect_ssl.hpp>
+ #include <boost/beast/core/error.hpp>
+@@ -44,6 +48,7 @@
+ #include <bit>
+ #include <chrono>
+ #include <cstddef>
++#include <random>
+ #include <cstdint>
+ #include <functional>
+ #include <memory>
+@@ -92,6 +97,27 @@ class Connection :
+     ~Connection()
+     {
+         res.releaseCompleteRequestHandler();
++
++        // Clean up pipe extraction on connection destruction
++        // This handles network disconnection, timeout, and other abnormal closures
++        if (parser)
++        {
++            try
++            {
++                auto& body = parser->get().body();
++                if (body.isPipeExtractionMode() && !body.isExtractionSucceeded())
++                {
++                    BMCWEB_LOG_WARNING("{} Connection destroyed during failed pipe extraction, cleaning up failed extraction on connection close",
++                                     logPtr(this));
++                    body.cleanupExtractPath();
++                }
++            }
++            catch (const std::exception& e)
++            {
++                BMCWEB_LOG_ERROR("{} Exception during cleanup: {}", logPtr(this), e.what());
++            }
++        }
++
+         cancelDeadlineTimer();
+ 
+         connectionCount--;
+@@ -372,6 +398,18 @@ class Connection :
+         if (!parser)
+         {
+             return;
++        }
++         // Close pipe extraction if enabled
++        if (parser->get().body().isPipeExtractionMode())
++        {
++            if (!parser->get().body().closePipeExtraction())
++            {
++                BMCWEB_LOG_ERROR("Failed to close extraction pipe");
++                parser->get().body().cleanupExtractPath();
++                res.result(boost::beast::http::status::internal_server_error);
++                completeRequest(res);
++                return;
++            }
+         }
+         req = std::make_shared<crow::Request>(parser->release(), reqEc);
+         if (reqEc)
+@@ -446,6 +484,27 @@ class Connection :
+ 
+     void hardClose()
+     {
++        // Clean up pipe extraction before hard closing
++        // This is critical for timeout scenarios
++        if (parser)
++        {
++            try
++            {
++                auto& body = parser->get().body();
++                if (body.isPipeExtractionMode() && !body.isExtractionSucceeded())
++                {
++                    BMCWEB_LOG_WARNING("{} Hard close during pipe extraction, cleaning up",
++                                     logPtr(this));
++                    body.closePipeExtraction();
++                    body.cleanupExtractPath();
++                }
++            }
++            catch (const std::exception& e)
++            {
++                BMCWEB_LOG_ERROR("{} Exception during hard close cleanup: {}",
++                               logPtr(this), e.what());
++            }
++        }
+         BMCWEB_LOG_DEBUG("{} Closing socket", logPtr(this));
+         adaptor.next_layer().close();
+     }
+@@ -640,6 +699,39 @@ class Connection :
+                 ip, res, method, value.base(), mtlsSession);
+         }
+ 
++        std::string_view target = value.target();
++
++        // Detect firmware upload FIRST, before handling Expect: 100-continue.
++        // This ensures pendingOutputDir is set regardless of whether the client
++        // sent "Expect: 100-continue" header. If the client did send Expect,
++        // the code below will send 100-continue and return; afterDoWrite() will
++        // then find pendingOutputDir non-empty and call enablePipeExtraction().
++        // If the client did not send Expect, we send 100-continue ourselves to
++        // guarantee a clean separation between headers and body.
++        if constexpr (BMCWEB_FIRMWARE_STREAM_UPDATE)
++        {
++            if (target == "/redfish/v1/UpdateService/update")
++            {
++                std::string_view contentType =
++                    value[boost::beast::http::field::content_type];
++
++                if (contentType == "application/octet-stream")
++                {
++                    std::random_device rd;
++                    std::mt19937 gen(rd());
++                    std::uniform_int_distribution<uint32_t> dis(0, 0xFFFFFFFF);
++                    std::ostringstream oss;
++                    oss << std::hex << std::setfill('0') << std::setw(8) << dis(gen);
++                    std::string tmpid = oss.str();
++
++                    pendingOutputDir = "/tmp/images/" + tmpid;
++
++                    BMCWEB_LOG_INFO("Firmware upload detected, save in /tmp/images/{}",
++                                tmpid);
++                }
++            }
++        }
++
+         std::string_view expect = value[boost::beast::http::field::expect];
+         if (bmcweb::asciiIEquals(expect, "100-continue"))
+         {
+@@ -653,6 +745,18 @@ class Connection :
+             return;
+         }
+ 
++        // If firmware upload was detected but client did not send
++        // "Expect: 100-continue", send 100-continue ourselves to ensure
++        // enablePipeExtraction() is called before any body data arrives.
++        // This prevents headers+body arriving in the same TCP segment,
++        // which would bypass doRead() and cause tar short read (0 bytes).
++        if (!pendingOutputDir.empty())
++        {
++            res.result(boost::beast::http::status::continue_);
++            doWrite();
++            return;
++        }
++
+         parse.body_limit(getContentLengthLimit());
+ 
+         if (parse.is_done())
+@@ -797,8 +901,38 @@ class Connection :
+ 
+         if (res.result() == boost::beast::http::status::continue_)
+         {
+-            // Reset the result to ok
++            // Reset the result to ok so the final response is not 100.
+             res.result(boost::beast::http::status::ok);
++
++            // If a firmware stream upload was pending, set up the pipe now
++            // that the 100-continue has been delivered and the client is
++            // guaranteed to send body data in the next read cycle.
++            // This must happen here (after doWrite completes) rather than in
++            // afterReadHeaders() to prevent a double-doRead() race: calling
++            // doRead() both at the end of afterReadHeaders() and here would
++            // launch two concurrent async reads on the same socket, causing
++            // one to cancel the other (Operation canceled / tar short read).
++            if (!pendingOutputDir.empty())
++            {
++                if (parser && parser->get().body().enablePipeExtraction(
++                                  pendingOutputDir))
++                {
++                    BMCWEB_LOG_INFO("Enabled pipe extraction");
++                }
++                pendingOutputDir.clear();
++                if (parser)
++                {
++                    parser->body_limit(getContentLengthLimit());
++                }
++            }
++
++            // Cancel the timer started by doWrite() for 100-continue,
++            // and restart it fresh for the body read phase.
++            // Without this, the timer may expire while async_read_some is
++            // still pending, causing a race where afterTimerWait() sees
++            // operation_aborted and returns without calling hardClose().
++            // cancelDeadlineTimer();
++            timerStarted = false;
+             doRead();
+             return;
+         }
+@@ -817,8 +951,13 @@ class Connection :
+         initParser();
+ 
+         userSession = nullptr;
+-
+-        req->clear();
++        // req may be null if handle() returned early (e.g. pipe extraction
++        // failure) before the req object was constructed from the parser.
++        // Guard against null dereference in that case.
++        if (req)
++        {
++            req->clear();
++        }
+         doReadHeaders();
+     }
+ 
+@@ -926,6 +1065,10 @@ class Connection :
+ 
+     std::shared_ptr<crow::Request> req;
+     std::string accept;
++    // Holds the pending pipe extraction output directory path between the
++    // 100-continue write and the subsequent afterDoWrite() callback.
++    // Set in afterReadHeaders() and consumed in afterDoWrite().
++    std::string pendingOutputDir;
+     std::string http2settings;
+     crow::Response res;
+ 
+diff --git a/http/http_request.hpp b/http/http_request.hpp
+index 25fd5b33..f84e0fa4 100644
+--- a/http/http_request.hpp
++++ b/http/http_request.hpp
+@@ -143,6 +143,11 @@ struct Request
+         return req.body().str();
+     }
+ 
++    const bmcweb::HttpBody::value_type& bodyValue() const
++    {
++        return req.body();
++    }
++
+     bool target(std::string_view target)
+     {
+         req.target(target);
+diff --git a/meson.options b/meson.options
+index 981fa8b8..39e90c9f 100644
+--- a/meson.options
++++ b/meson.options
+@@ -535,3 +535,12 @@ option(
+                     enable on production systems at this time.  Other query
+                     parameters such as only are not controlled by this option.''',
+ )
++
++# BMCWEB_FIRMWARE_STREAM_UPDATE
++option(
++    'firmware-stream-update',
++    type: 'feature',
++    value: 'disabled',
++    description: '''Enables bmcweb use pipe to untar firmware data directly to /tmp/images, making
++                    sure only one firmware data in memory at the same time ''',
++)
+\ No newline at end of file
+diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
+index 36992647..5188eb63 100644
+--- a/redfish-core/lib/update_service.hpp
++++ b/redfish-core/lib/update_service.hpp
+@@ -12,6 +12,7 @@
+ #include "error_messages.hpp"
+ #include "generated/enums/resource.hpp"
+ #include "generated/enums/update_service.hpp"
++#include "http_body.hpp"
+ #include "http_request.hpp"
+ #include "http_response.hpp"
+ #include "io_context_singleton.hpp"
+@@ -51,10 +52,12 @@
+ #include <sdbusplus/unpack_properties.hpp>
+ 
+ #include <array>
++#include <cerrno>
+ #include <chrono>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdio>
++#include <cstring>
+ #include <filesystem>
+ #include <format>
+ #include <fstream>
+@@ -897,6 +900,26 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                 swEntry->second.first.str, swEntry->second.second);
+ }
+ 
++inline int createDirectoryPathMemfd(const std::string& dirPath)
++{
++    int fd = memfd_create("image-dir-path", MFD_CLOEXEC);
++    if (fd < 0)
++    {
++        BMCWEB_LOG_ERROR("Failed to create memfd: {}", strerror(errno));
++        return -1;
++    }
++    std::string marker = "DIR:";
++    std::string fullPath = marker + dirPath;
++    if (write(fd, fullPath.c_str(), fullPath.size()) < 0)
++    {
++        BMCWEB_LOG_ERROR("Failed to write to memfd: {}", strerror(errno));
++        close(fd);
++        return -1;
++    }
++    lseek(fd, 0, SEEK_SET);
++    return fd;
++}
++
+ inline void handleBMCUpdate(
+     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
+     const MemoryFileDescriptor& memfd, const std::string& applyTime,
+@@ -928,7 +951,7 @@ inline void processUpdateRequest(
+     const std::string& applyTime, std::vector<std::string>& targets)
+ {
+     MemoryFileDescriptor memfd("update-image");
+-    if (memfd.fd == -1)
++        if (memfd.fd == -1)
+     {
+         BMCWEB_LOG_ERROR("Failed to create image memfd");
+         messages::internalError(asyncResp->res);
+@@ -1028,6 +1051,31 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+         std::vector<std::string> targets;
+         targets.emplace_back(BMCWEB_REDFISH_MANAGER_URI_NAME);
+ 
++        bmcweb::HttpBody::value_type& httpBody = const_cast<bmcweb::HttpBody::value_type&>(req.bodyValue());
++
++        if (httpBody.isPipeExtractionMode())
++        {
++            std::string extractPath = httpBody.getExtractPath();
++            BMCWEB_LOG_INFO("Using pipe extraction mode, path: {}", extractPath);
++            std::filesystem::path manifestPath =
++                std::filesystem::path(extractPath) / "MANIFEST";
++            if (!std::filesystem::exists(manifestPath))
++            {
++                BMCWEB_LOG_ERROR("MANIFEST not found in: {}", extractPath);
++                messages::internalError(asyncResp->res);
++                httpBody.cleanupExtractPath();
++                return;
++            }
++
++            // MANIFEST validation passed, mark extraction as successful
++            // This prevents cleanup in Connection destructor
++            httpBody.markExtractionSuccess();
++            BMCWEB_LOG_INFO("MANIFEST validation passed, extraction marked successful");
++        }
++        else
++        {
++            BMCWEB_LOG_INFO("Using traditional string buffer mode (not pipe extraction)");
++        }
+         processUpdateRequest(
+             asyncResp, std::move(payload), req.body(),
+             "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate",
+@@ -1118,9 +1166,11 @@ inline void handleUpdateServiceGet(
+ 
+     asyncResp->res.jsonValue["HttpPushUri"] =
+         "/redfish/v1/UpdateService/update";
+-    asyncResp->res.jsonValue["MultipartHttpPushUri"] =
+-        "/redfish/v1/UpdateService/update-multipart";
+-
++    if constexpr (!BMCWEB_FIRMWARE_STREAM_UPDATE)
++    {
++        asyncResp->res.jsonValue["MultipartHttpPushUri"] =
++            "/redfish/v1/UpdateService/update-multipart";
++    }
+     // UpdateService cannot be disabled
+     asyncResp->res.jsonValue["ServiceEnabled"] = true;
+     asyncResp->res.jsonValue["FirmwareInventory"]["@odata.id"] =

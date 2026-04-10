@@ -1,0 +1,230 @@
+From 3e6d71d9982aa770f092c8f5629fb73b7c969566 Mon Sep 17 00:00:00 2001
+From: leon_fang <leon_fang@realsil.com.cn>
+Date: Tue, 14 Apr 2026 11:04:20 +0800
+Subject: [PATCH] feat: support pre-extracted directory path
+
+Extend processImage() to detect and handle pre-extracted firmware directories
+passed via memfd with "DIR:" marker prefix. This allows bmcweb to perform
+streaming extraction and pass the directory path directly, avoiding redundant
+tar extraction in phosphor-software-manager.
+
+When memfd contains "DIR:/path/to/extracted/dir", processImage() will:
+1. Detect the "DIR:" marker
+2. Validate the directory exists
+3. Skip tar extraction step
+4. Proceed directly to MANIFEST processing
+
+This maintains full backward compatibility with existing tar-based workflow
+
+BMCSW-775
+
+Change-Id: I4b82b3accf9da7acffc2bb279ca4f7a59899200d
+Signed-off-by: leon_fang <leon_fang@realsil.com.cn>
+Upstream-Status: Inappropriate [local configuration change for realtek, not suitable for upstream]
+---
+ bmc/static/flash.cpp   | 43 ++++++++++++++++++++--
+ bmc/update_manager.cpp | 83 ++++++++++++++++++++++++++++++------------
+ bmc/update_manager.hpp |  1 +
+ 3 files changed, 101 insertions(+), 26 deletions(-)
+
+diff --git a/bmc/static/flash.cpp b/bmc/static/flash.cpp
+index a478644..f46b3df 100644
+--- a/bmc/static/flash.cpp
++++ b/bmc/static/flash.cpp
+@@ -10,7 +10,7 @@
+ 
+ #include <filesystem>
+ #include <system_error>
+-
++#include <sys/mount.h>
+ namespace
+ {
+ constexpr auto PATH_INITRAMFS = "/run/initramfs";
+@@ -54,8 +54,45 @@ void Activation::flashWrite()
+     for (const auto& bmcImage : parent.imageUpdateList)
+     {
+         std::error_code ec;
+-        fs::copy_file(uploadDir / versionId / bmcImage, toPath / bmcImage,
+-                      fs::copy_options::overwrite_existing, ec);
++        auto fromPath = toPath / versionId / bmcImage;
++        auto destPath = toPath / bmcImage;
++
++        // Try rename first (zero-copy on same filesystem)
++        fs::rename(fromPath, destPath, ec);
++        if (ec)
++        {
++            // Fallback to copy if rename fails (e.g., cross-filesystem)
++            info("Rename failed for {FILE}, falling back to copy: {ERROR}",
++                 "FILE", bmcImage, "ERROR", ec.message());
++            ec.clear();
++            fs::copy_file(fromPath, destPath,
++                          fs::copy_options::overwrite_existing, ec);
++            if (ec)
++            {
++                error("Failed to copy {FILE}: {ERROR}", "FILE", bmcImage,
++                      "ERROR", ec.message());
++            }
++        }
++    }
++    fs::remove_all(toPath / versionId);
++
++    if (umount(IMG_UPLOAD_DIR) != 0)
++    {
++        error("Error ({ERRNO}) occurred during umount {PATH}, trying lazy unmount",
++                "ERRNO", errno, "PATH",  static_cast<const char*>(IMG_UPLOAD_DIR));
++        // Try lazy unmount (MNT_DETACH) if normal unmount fails
++        if (umount2(IMG_UPLOAD_DIR, MNT_DETACH) != 0)
++        {
++            error("Lazy unmount also failed ({ERRNO})", "ERRNO", errno);
++        }
++        else
++        {
++            info("Successfully lazy unmounted /run/initramfs from {PATH}", "PATH", static_cast<const char*>(IMG_UPLOAD_DIR));
++        }
++    }
++    else
++    {
++        info("Successfully unmounted /run/initramfs from {PATH}", "PATH", static_cast<const char*>(IMG_UPLOAD_DIR));
+     }
+ }
+ 
+diff --git a/bmc/update_manager.cpp b/bmc/update_manager.cpp
+index 922f2bc..d85d74a 100644
+--- a/bmc/update_manager.cpp
++++ b/bmc/update_manager.cpp
+@@ -11,7 +11,9 @@
+ #include <xyz/openbmc_project/Common/error.hpp>
+ #include <xyz/openbmc_project/Software/Image/error.hpp>
+ 
++#include <optional>
+ #include <filesystem>
++#include <sys/mount.h>
+ 
+ PHOSPHOR_LOG2_USING;
+ 
+@@ -34,7 +36,10 @@ using ImageFail = SoftwareLogging::image::ImageFailure;
+ void Manager::processImageFailed(sdbusplus::message::unix_fd image,
+                                  std::string& id)
+ {
+-    close(image);
++    if (!imageFdClosed)
++    {
++        close(image);
++    }
+     updateInProgress = false;
+     itemUpdater.updateActivationStatus(id,
+                                        ActivationIntf::Activations::Invalid);
+@@ -58,32 +63,60 @@ auto Manager::processImage(sdbusplus::message::unix_fd image,
+     -> sdbusplus::async::task<>
+ {
+     debug("Processing image {FD}", "FD", image.fd);
+-    fs::path tmpDirPath(std::string{IMG_UPLOAD_DIR});
+-    tmpDirPath /= "imageXXXXXX";
+-    auto tmpDir = tmpDirPath.string();
+-    // Create a tmp dir to copy tarball.
+-    if (!mkdtemp(tmpDir.data()))
++    fs::path tmpDirPath;
++    // Try to read memfd content to check if it's a directory path marker
++    char buffer[PATH_MAX + 10];
++    // Lseek to beginning just in case
++    lseek(image.fd, 0, SEEK_SET);
++    ssize_t bytesRead = read(image.fd, buffer, sizeof(buffer) - 1);
++    if (bytesRead > 4 && strncmp(buffer, "DIR:", 4) == 0)
+     {
+-        error("Error ({ERRNO}) occurred during mkdtemp", "ERRNO", errno);
+-        processImageFailed(image, id);
+-        report<SoftwareErrors::InternalFailure>(InternalFail::FAIL("mkdtemp"));
+-        co_return;
++        // This is a directory path marker from bmcweb streaming extraction
++        buffer[bytesRead] = '\0';
++        std::string dirPath(buffer + 4);  // Skip "DIR:" prefix
++        std::error_code ec;
++        if (fs::is_directory(dirPath, ec) && !ec)
++        {
++            info("Using pre-extracted directory: {DIRPATH}", "DIRPATH", dirPath);
++            tmpDirPath = dirPath;
++        }
+     }
+ 
+-    std::error_code ec;
+-    tmpDirPath = tmpDir;
+-    softwareUtils::RemovablePath tmpDirToRemove(tmpDirPath);
+-
+-    // Untar tarball into the tmp dir
+-    if (!softwareUtils::unTar(image, tmpDirPath.string()))
++    if (tmpDirPath.empty())
+     {
+-        error("Error occurred during untar");
+-        processImageFailed(image, id);
+-        report<SoftwareErrors::UnTarFailure>(
+-            UnTarFail::PATH(tmpDirPath.c_str()));
+-        co_return;
+-    }
++        // Fallback to normal tar extraction logic
++        lseek(image.fd, 0, SEEK_SET); // Reset fd pointer for tar extraction
++        tmpDirPath = fs::path(std::string{IMG_UPLOAD_DIR});
++        tmpDirPath /= "imageXXXXXX";
++        auto tmpDir = tmpDirPath.string();
++
++        if (!mkdtemp(tmpDir.data()))
++        {
++            error("Error ({ERRNO}) occurred during mkdtemp", "ERRNO", errno);
++            processImageFailed(image, id);
++            report<SoftwareErrors::InternalFailure>(InternalFail::FAIL("mkdtemp"));
++            co_return;
++        }
++
++        std::error_code ec;
++        tmpDirPath = tmpDir;
++
++        // Untar tarball into the tmp dir
++        if (!softwareUtils::unTar(image, tmpDirPath.string()))
++        {
++            error("Error occurred during untar");
++            processImageFailed(image, id);
++            report<SoftwareErrors::UnTarFailure>(
++                UnTarFail::PATH(tmpDirPath.c_str()));
++            co_return;
++        }
+ 
++        // Close the image fd immediately after untar to free memory
++        close(image.fd);
++        imageFdClosed = true;
++        info("Closed image fd to free memory after untar");
++    }
++    softwareUtils::RemovablePath tmpDirToRemove(tmpDirPath);
+     fs::path manifestPath = tmpDirPath;
+     manifestPath /= MANIFEST_FILE_NAME;
+ 
+@@ -178,6 +211,7 @@ auto Manager::processImage(sdbusplus::message::unix_fd image,
+ 
+     // Rename IMG_UPLOAD_DIR/imageXXXXXX to IMG_UPLOAD_DIR/id as Manifest
+     // parsing succedded.
++    std::error_code ec;
+     fs::path imageDirPath = std::string{IMG_UPLOAD_DIR};
+     imageDirPath /= id;
+     fs::rename(tmpDirPath, imageDirPath, ec);
+@@ -204,7 +238,10 @@ auto Manager::processImage(sdbusplus::message::unix_fd image,
+     }
+ 
+     updateInProgress = false;
+-    close(image);
++    if(!imageFdClosed)
++    {
++        close(image);
++    }
+     co_return;
+ }
+ 
+diff --git a/bmc/update_manager.hpp b/bmc/update_manager.hpp
+index caba541..4bc1669 100644
+--- a/bmc/update_manager.hpp
++++ b/bmc/update_manager.hpp
+@@ -71,6 +71,7 @@ class Manager : public UpdateIntf
+     ItemUpdaterIntf& itemUpdater;
+     /** @brief State whether update is in progress */
+     bool updateInProgress = false;
++    bool imageFdClosed = false;
+ };
+ 
+ } // namespace phosphor::software::update

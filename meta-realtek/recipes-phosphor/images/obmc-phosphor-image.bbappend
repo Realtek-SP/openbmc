@@ -4,8 +4,6 @@ OBMC_IMAGE_EXTRA_INSTALL:append = " \
     update-network \
     init-hostname \
     nfs-utils \
-    phosphor-skeleton-control-power \
-    phosphor-state-manager \
     phosphor-sel-logger \
     phosphor-post-code-manager \
     phosphor-host-postd \
@@ -15,12 +13,18 @@ OBMC_IMAGE_EXTRA_INSTALL:append = " \
     strace \
     iomat-tools \
     phosphor-misc-usb-ctrl \
+    ${@bb.utils.contains_any('MACHINE', \
+                    'rts4931a-escm rts4932a-escm','phosphor-skeleton-control-power ','',d)} \
 "
+
 #autologin for debug
 IMAGE_FEATURES += "empty-root-password serial-autologin-root allow-root-login allow-empty-password"
 IMAGE_FEATURES:remove = "\
     obmc-ikvm \
+    ${@bb.utils.contains_any('MACHINE', \
+                                'rts4931a-evb rts4932a-evb','obmc-leds ','',d)} \
 "
+
 ROOTFS_POSTPROCESS_COMMAND += "reconfig_getty_service"
 
 reconfig_getty_service () {
