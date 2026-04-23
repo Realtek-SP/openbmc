@@ -47,6 +47,10 @@ addtask savedefconfig after do_configure
 
 UBOOT_ARCH_DIR = "${@'arm' if d.getVar('UBOOT_ARCH').startswith('arm') else d.getVar('UBOOT_ARCH')}"
 
+do_compile:prepend() {
+    unset SOURCE_DATE_EPOCH
+}
+
 do_compile() {
     rsync -au --chmod=u=rwX,go=rX  --exclude .svn --exclude .git --exclude .hg --exclude .bzr --exclude CVS ${S}/ ${B}
     oe_runmake -C ${B}
