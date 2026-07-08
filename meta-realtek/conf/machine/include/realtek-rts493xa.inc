@@ -54,3 +54,6 @@ FLASH_RWFS_OFFSET:flash-262144 = "197120"
 
 KERNEL_DEBUG_TIMESTAMPS = "1"
 
+# Use OpenBMC's native tar for package copy to avoid host tar behavior.
+do_package[depends] += "tar-replacement-native:do_populate_sysroot"
+EXTRANATIVEPATH += "tar-native"
