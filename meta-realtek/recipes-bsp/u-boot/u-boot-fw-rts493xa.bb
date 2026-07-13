@@ -11,7 +11,7 @@ SRC_URI += "file://fw_env_rts493xa_evb.config"
 ENV_CONFIG_FILE = "fw_env_rts493xa_evb.config"
 ENV_CONFIG_FILE = "fw_env_rts493xa_evb.config"
 ENV_CONFIG_FILE:rts4931a-escm = "fw_env_rts493xa_escm.config"
-ENV_CONFIG_FILE:rts4932a-escam = "fw_env_rts493xa_escm.config"
+ENV_CONFIG_FILE:rts4932a-escm = "fw_env_rts493xa_escm.config"
 
 INSANE_SKIP:${PN} = "already-stripped"
 EXTRA_OEMAKE:class-target = 'CROSS_COMPILE=${TARGET_PREFIX} CC="${CC} ${CFLAGS} ${LDFLAGS}" HOSTCC="${BUILD_CC} ${BUILD_CFLAGS} ${BUILD_LDFLAGS}" V=1'
