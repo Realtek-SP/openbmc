@@ -166,14 +166,14 @@
         }
     },
     "15" : {
-        "name" : "ipmi_ssif",
+        "name" : "ipmi_kcs1",
         "is_valid" : true,
         "active_sessions" : 0,
         "channel_info" : {
-        "medium_type" : "smbus-v2.0",
-        "protocol_type" : "ipmi-smbus",
-        "session_supported" : "session-less",
-        "is_ipmi" : true
+            "medium_type" : "system-interface",
+            "protocol_type" : "kcs",
+            "session_supported" : "session-less",
+            "is_ipmi" : true
+        }
     }
-  }
 }
