@@ -1,4 +1,4 @@
-SRCREV = "21adcd3627943db8e234ecebc0028746bd1f8446"
+SRCREV = "${AUTOREV}"
 
 KBRANCH = "realtek-v6.6"
 
